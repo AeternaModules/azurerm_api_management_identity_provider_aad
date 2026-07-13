@@ -25,40 +25,70 @@ EOT
     client_library                      = optional(string)
     signin_tenant                       = optional(string)
   }))
-  # --- Unconfirmed validation candidates, derived from azurerm_api_management_identity_provider_aad's provider source ---
-  # Not auto-enabled: either a bespoke provider validator we can't safely translate,
-  # or a path that crosses a list-typed block (needs its own for_each wrapping).
-  # Review, translate into a real validation{} block above, and delete once confirmed.
-  # path: resource_group_name
-  #   condition: length(value) <= 90
-  #   message:   [from resourcegroups.ValidateName: invalid when len(value) > 90]
-  #   source:    [from resourcegroups.ValidateName: invalid when len(value) > 90]
-  # path: resource_group_name
-  #   condition: !endswith(value, ".")
-  #   message:   [from resourcegroups.ValidateName: must not end with "."]
-  #   source:    [from resourcegroups.ValidateName: must not end with "."]
-  # path: resource_group_name
-  #   condition: length(value) != 0
-  #   message:   [from resourcegroups.ValidateName: invalid when len(value) == 0]
-  #   source:    [from resourcegroups.ValidateName: invalid when len(value) == 0]
-  # path: resource_group_name
-  #   source:    [from resourcegroups.ValidateName] !matched
-  # path: api_management_name
-  #   source:    [from validate.ApiManagementServiceName] !matched
-  # path: client_id
-  #   condition: can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", value))
-  #   message:   must be a valid UUID
-  # path: client_secret
-  #   condition: length(value) > 0
-  #   message:   must not be empty
-  # path: allowed_tenants[*]
-  #   condition: can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", value))
-  #   message:   must be a valid UUID
-  # path: client_library
-  #   condition: length(value) >= 0 && length(value) <= 16
-  #   message:   must be between 0 and 16 characters
-  # path: signin_tenant
-  #   condition: can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", value))
-  #   message:   must be a valid UUID
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        length(v.resource_group_name) <= 90
+      )
+    ])
+    error_message = "[from resourcegroups.ValidateName: invalid when len(value) > 90]"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        !endswith(v.resource_group_name, ".")
+      )
+    ])
+    error_message = "[from resourcegroups.ValidateName: must not end with \".\"]"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        length(v.resource_group_name) != 0
+      )
+    ])
+    error_message = "[from resourcegroups.ValidateName: invalid when len(value) == 0]"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", v.client_id))
+      )
+    ])
+    error_message = "must be a valid UUID"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        length(v.client_secret) > 0
+      )
+    ])
+    error_message = "must not be empty"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        alltrue([for x in v.allowed_tenants : can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", x))])
+      )
+    ])
+    error_message = "must be a valid UUID"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        v.client_library == null || (length(v.client_library) >= 0 && length(v.client_library) <= 16)
+      )
+    ])
+    error_message = "must be between 0 and 16 characters"
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.api_management_identity_provider_aads : (
+        v.signin_tenant == null || (can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", v.signin_tenant)))
+      )
+    ])
+    error_message = "must be a valid UUID"
+  }
+  # Note: 2 additional provider-side validators are enforced at apply time but not mirrored as validation{} blocks here (bespoke or non-mechanically-translatable).
 }
 
